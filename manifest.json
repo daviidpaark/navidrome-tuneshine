@@ -1,0 +1,62 @@
+{
+  "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
+  "name": "Tuneshine",
+  "author": "daviidpaark",
+  "version": "0.1.0",
+  "description": "Sends album art and track metadata to a Tuneshine device on your LAN",
+  "permissions": {
+    "users": {
+      "reason": "To receive scrobble and now-playing events for all users"
+    },
+    "http": {
+      "reason": "To send album art and metadata to the Tuneshine device",
+      "requiredHosts": [
+        "*"
+      ]
+    },
+    "cache": {
+      "reason": "To deduplicate requests and avoid sending the same track twice"
+    },
+    "scheduler": {
+      "reason": "To schedule clearing the image when a track finishes"
+    },
+    "subsonicapi": {
+      "reason": "To fetch track artwork for sending to the Tuneshine device"
+    }
+  },
+  "config": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Tuneshine Device Host",
+          "description": "Hostname or IP address of your Tuneshine device (e.g. tuneshine-1D78.local or 192.168.1.100)",
+          "minLength": 1
+        },
+        "servicename": {
+          "type": "string",
+          "title": "Service Name",
+          "description": "Name shown on the Tuneshine as the music source",
+          "default": "Navidrome"
+        }
+      },
+      "required": [
+        "host"
+      ]
+    },
+    "uiSchema": {
+      "type": "VerticalLayout",
+      "elements": [
+        {
+          "type": "Control",
+          "scope": "#/properties/host"
+        },
+        {
+          "type": "Control",
+          "scope": "#/properties/servicename"
+        }
+      ]
+    }
+  }
+}
