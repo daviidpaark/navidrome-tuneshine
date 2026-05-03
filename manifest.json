@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Tuneshine",
   "author": "daviidpaark",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sends album art and track metadata to a Tuneshine device on your LAN",
   "permissions": {
     "users": {
@@ -16,9 +16,6 @@
     },
     "cache": {
       "reason": "To deduplicate requests and avoid sending the same track twice"
-    },
-    "scheduler": {
-      "reason": "To schedule clearing the image when a track finishes"
     },
     "subsonicapi": {
       "reason": "To fetch track artwork for sending to the Tuneshine device"

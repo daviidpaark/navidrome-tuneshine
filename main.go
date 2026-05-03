@@ -1,9 +1,9 @@
 // Tuneshine Plugin for Navidrome
 //
 // Sends album art and track metadata to a Tuneshine device on the LAN
-// when a track starts playing, and clears the display when playback ends.
+// when playing, and clears the display when paused or stopped.
 //
-// Capabilities: Scrobbler, SchedulerCallback
+// Capabilities: Scrobbler
 package main
 
 import (
@@ -17,7 +17,6 @@ import (
 	"github.com/HugoSmits86/nativewebp"
 	"github.com/navidrome/navidrome/plugins/pdk/go/host"
 	"github.com/navidrome/navidrome/plugins/pdk/go/pdk"
-	"github.com/navidrome/navidrome/plugins/pdk/go/scheduler"
 	"github.com/navidrome/navidrome/plugins/pdk/go/scrobbler"
 	"golang.org/x/image/draw"
 )
@@ -26,21 +25,17 @@ const (
 	hostKey        = "host"
 	serviceNameKey = "servicename"
 
-	payloadClearImage = "clear-image"
-	clearScheduleID   = "tuneshine-clear"
-
 	cacheKeyLastTrack = "last-track-id"
 	cacheTTLSeconds   = 3600 // 1 hour
 
 	tuneshineSize = 64 // Tuneshine display is 64x64
 )
 
-// tuneshine implements the scrobbler and scheduler interfaces.
+// tuneshine implements the scrobbler interface.
 type tuneshine struct{}
 
 func init() {
 	scrobbler.Register(&tuneshine{})
-	scheduler.Register(&tuneshine{})
 }
 
 // getConfig loads the plugin configuration.
@@ -98,47 +93,79 @@ func (t *tuneshine) IsAuthorized(input scrobbler.IsAuthorizedRequest) (bool, err
 	return true, nil
 }
 
-// NowPlaying sends the current track's artwork and metadata to the Tuneshine.
-func (t *tuneshine) NowPlaying(input scrobbler.NowPlayingRequest) error {
+// NowPlaying is a no-op (playback state is handled by PlaybackReport).
+func (t *tuneshine) NowPlaying(_ scrobbler.NowPlayingRequest) error {
+	return nil
+}
+
+// PlaybackReport handles playback state changes from Navidrome.
+// Shows the track image when playing, clears it on paused/stopped/expired.
+func (t *tuneshine) PlaybackReport(input scrobbler.PlaybackReportRequest) error {
+	switch input.State {
+	case "playing":
+		return t.displayTrack(input)
+	case "paused", "stopped", "expired":
+		return t.clearDisplay()
+	default:
+		// Ignore "starting" and any unknown states.
+		return nil
+	}
+}
+
+// displayTrack uploads track artwork and metadata to the Tuneshine device.
+func (t *tuneshine) displayTrack(input scrobbler.PlaybackReportRequest) error {
 	deviceHost, serviceName, err := getConfig()
 	if err != nil {
 		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine config error: %v", err))
 		return nil
 	}
 
-	// Always cancel any pending clear timer first (handles track skip, replay, etc.)
-	_ = host.SchedulerCancelSchedule(clearScheduleID)
-
-	// Check if the track changed \u2014 skip image upload if already displaying this track
+	// Check if the track changed — skip upload if already displaying this track.
 	lastID, found, _ := host.CacheGetString(cacheKeyLastTrack)
-	sameTrack := found && lastID == input.Track.ID
-
-	if sameTrack {
-		pdk.Log(pdk.LogInfo, "Tuneshine: same track, rescheduling clear timer only")
-	} else {
-		// Fetch and upload new artwork
-		if err := uploadTrackImage(input, deviceHost, serviceName); err != nil {
-			pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: %v", err))
-			return nil
-		}
-		_ = host.CacheSetString(cacheKeyLastTrack, input.Track.ID, cacheTTLSeconds)
+	if found && lastID == input.Track.ID {
+		pdk.Log(pdk.LogInfo, "Tuneshine: same track, skipping re-upload")
+		return nil
 	}
 
-	// Schedule clearing the display when the track ends.
-	remainingSeconds := int32(input.Track.Duration) - input.Position
-	if remainingSeconds < 1 {
-		remainingSeconds = 1
+	if err := uploadTrackImage(input, deviceHost, serviceName); err != nil {
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: %v", err))
+		return nil
 	}
-	_, err = host.SchedulerScheduleOneTime(remainingSeconds, payloadClearImage, clearScheduleID)
+	_ = host.CacheSetString(cacheKeyLastTrack, input.Track.ID, cacheTTLSeconds)
+	return nil
+}
+
+// clearDisplay sends DELETE /image to the Tuneshine to revert to the idle screen.
+// The cached track ID is also cleared so the next play re-uploads fresh artwork.
+func (t *tuneshine) clearDisplay() error {
+	deviceHost, _, err := getConfig()
 	if err != nil {
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: failed to schedule clear: %v", err))
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine config error: %v", err))
+		return nil
 	}
 
+	url := fmt.Sprintf("http://%s/image", deviceHost)
+	resp, err := host.HTTPSend(host.HTTPRequest{
+		Method:    "DELETE",
+		URL:       url,
+		TimeoutMs: 10000,
+	})
+	if err != nil {
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: HTTP error deleting image: %v", err))
+		return nil
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: DELETE /image returned %d: %s", resp.StatusCode, string(resp.Body)))
+		return nil
+	}
+
+	pdk.Log(pdk.LogInfo, "Tuneshine: cleared display")
+	_ = host.CacheRemove(cacheKeyLastTrack)
 	return nil
 }
 
 // uploadTrackImage fetches artwork via SubsonicAPI, converts to WebP, and POSTs to the Tuneshine.
-func uploadTrackImage(input scrobbler.NowPlayingRequest, deviceHost, serviceName string) error {
+func uploadTrackImage(input scrobbler.PlaybackReportRequest, deviceHost, serviceName string) error {
 	// Fetch artwork directly from Navidrome via SubsonicAPI (server-side)
 	_, imageData, err := host.SubsonicAPICallRaw(
 		fmt.Sprintf("/getCoverArt?u=%s&id=%s&size=%d", input.Username, input.Track.ID, tuneshineSize),
@@ -210,50 +237,8 @@ func uploadTrackImage(input scrobbler.NowPlayingRequest, deviceHost, serviceName
 	return nil
 }
 
-// Scrobble fires when a track is considered "played" \u2014 this can happen mid-playback,
-// so we don't clear the display here. The duration-based timer handles clearing.
+// Scrobble is a no-op for Tuneshine.
 func (t *tuneshine) Scrobble(_ scrobbler.ScrobbleRequest) error {
-	return nil
-}
-
-// ============================================================================
-// Scheduler Callback Implementation
-// ============================================================================
-
-// OnCallback handles scheduler callbacks (clears the Tuneshine display).
-func (t *tuneshine) OnCallback(input scheduler.SchedulerCallbackRequest) error {
-	if input.Payload != payloadClearImage {
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: unknown callback payload: %s", input.Payload))
-		return nil
-	}
-
-	deviceHost, _, err := getConfig()
-	if err != nil {
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine config error: %v", err))
-		return nil
-	}
-
-	// DELETE /image to revert to idle screen
-	url := fmt.Sprintf("http://%s/image", deviceHost)
-	resp, err := host.HTTPSend(host.HTTPRequest{
-		Method:    "DELETE",
-		URL:       url,
-		TimeoutMs: 10000,
-	})
-	if err != nil {
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: HTTP error deleting image: %v", err))
-		return nil
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("Tuneshine: DELETE /image returned %d: %s", resp.StatusCode, string(resp.Body)))
-		return nil
-	}
-
-	pdk.Log(pdk.LogInfo, "Tuneshine: cleared display (track ended)")
-
-	// Clear the cached track ID so the next play sends fresh
-	_ = host.CacheRemove(cacheKeyLastTrack)
-
 	return nil
 }
 

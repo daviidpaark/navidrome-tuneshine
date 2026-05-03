@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/HugoSmits86/nativewebp v1.2.1
-	github.com/navidrome/navidrome/plugins/pdk/go v0.0.0-20260320221607-03844a9a369a
+	github.com/navidrome/navidrome/plugins/pdk/go v0.0.0-20260502234844-a00152397e08
 	golang.org/x/image v0.39.0
 )
 
