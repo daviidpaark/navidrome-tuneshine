@@ -25,7 +25,7 @@ When Navidrome reports a playback state change, the plugin:
 
 1. Download `tuneshine.ndp` from the releases
 2. Place it in your Navidrome plugins directory
-3. Restart Navidrome
+3. Go to **Settings → Plugins** and click **Rescan** to detect the plugin
 4. Go to **Settings → Plugins → Tuneshine** and configure:
    - **Tuneshine Device Host** — IP address or hostname of your Tuneshine (e.g. `192.168.1.100` or `tuneshine.local`)
    - **Service Name** — Label shown on the Tuneshine display (default: `Navidrome`)
