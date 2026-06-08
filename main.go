@@ -13,6 +13,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"strings"
 
 	"github.com/HugoSmits86/nativewebp"
 	"github.com/navidrome/navidrome/plugins/pdk/go/host"
@@ -24,6 +25,7 @@ import (
 const (
 	hostKey        = "host"
 	serviceNameKey = "servicename"
+	userKey        = "user"
 
 	cacheKeyLastTrack = "last-track-id"
 	cacheTTLSeconds   = 3600 // 1 hour
@@ -87,10 +89,19 @@ func convertToWebP(imageData []byte) ([]byte, error) {
 // Scrobbler Implementation
 // ============================================================================
 
-// IsAuthorized allows all users.
+// IsAuthorized allows all users, or only the configured user(s) if "user" is set.
+// "user" may be a single username or a comma-separated list (e.g. "user1,user2").
 func (t *tuneshine) IsAuthorized(input scrobbler.IsAuthorizedRequest) (bool, error) {
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("Tuneshine: IsAuthorized for user %s", input.Username))
-	return true, nil
+	allowed, ok := pdk.GetConfig(userKey)
+	if !ok || allowed == "" {
+		return true, nil
+	}
+	for _, name := range strings.Split(allowed, ",") {
+		if strings.TrimSpace(name) == input.Username {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // NowPlaying is a no-op (playback state is handled by PlaybackReport).

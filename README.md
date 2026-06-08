@@ -8,7 +8,7 @@ A [Navidrome](https://www.navidrome.org/) plugin that sends album art and track 
 - Sends track title, artist, and album name as metadata
 - Clears the display immediately when playback is paused or stopped
 - Deduplicates requests for the same track
-- Works for all Navidrome users
+- Works for all Navidrome users, with an optional allowlist to restrict which users update the display
 
 ## How It Works
 
@@ -29,6 +29,7 @@ When Navidrome reports a playback state change, the plugin:
 4. Go to **Settings → Plugins → Tuneshine** and configure:
    - **Tuneshine Device Host** — IP address or hostname of your Tuneshine (e.g. `192.168.1.100` or `tuneshine.local`)
    - **Service Name** — Label shown on the Tuneshine display (default: `Navidrome`)
+   - **Restrict to User(s)** — Optional. Only show playback from these usernames (e.g. `user1` or `user1,user2`). Leave blank for all users.
 5. Enable the plugin
 
 ## Building from Source
@@ -59,6 +60,7 @@ zip tuneshine.ndp plugin.wasm manifest.json
 |---------|----------|---------|-------------|
 | `host` | Yes | — | Hostname or IP of the Tuneshine device |
 | `servicename` | No | `Navidrome` | Music source name shown on the display |
+| `user` | No | _(all users)_ | Comma-separated list of usernames allowed to update the display (e.g. `user1` or `user1,user2`) |
 
 ## Dependencies
 
@@ -77,4 +79,4 @@ zip tuneshine.ndp plugin.wasm manifest.json
 
 ## Disclosure
 
-This project was created entirely with **GitHub Copilot** using **Claude Opus 4.6**. All code, configuration, and documentation were generated through an iterative conversation with the AI assistant, including debugging network compatibility issues, discovering the Tuneshine's chunked transfer encoding limitation, and pivoting to server-side image processing.
+This project was created entirely with **GitHub Copilot** using **Claude Sonnet 4.6**. All code, configuration, and documentation were generated through an iterative conversation with the AI assistant, including debugging network compatibility issues, discovering the Tuneshine's chunked transfer encoding limitation, and pivoting to server-side image processing.

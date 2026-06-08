@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Tuneshine",
   "author": "daviidpaark",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Sends album art and track metadata to a Tuneshine device on your LAN",
   "permissions": {
     "users": {
@@ -36,6 +36,11 @@
           "title": "Service Name",
           "description": "Name shown on the Tuneshine as the music source",
           "default": "Navidrome"
+        },
+        "user": {
+          "type": "string",
+          "title": "Restrict to User(s)",
+          "description": "Optional. Comma-separated list of Navidrome usernames allowed to update the display (e.g. \"user1\" or \"user1,user2\"). Leave blank to allow all users."
         }
       },
       "required": [
@@ -52,6 +57,10 @@
         {
           "type": "Control",
           "scope": "#/properties/servicename"
+        },
+        {
+          "type": "Control",
+          "scope": "#/properties/user"
         }
       ]
     }
