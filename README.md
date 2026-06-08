@@ -6,20 +6,20 @@ A [Navidrome](https://www.navidrome.org/) plugin that sends album art and track 
 
 - Displays 64×64 album art on the Tuneshine device when a track starts playing
 - Sends track title, artist, and album name as metadata
-- Automatically clears the display when the track ends
+- Clears the display immediately when playback is paused or stopped
 - Deduplicates requests for the same track
 - Works for all Navidrome users
 
 ## How It Works
 
-When Navidrome reports a "now playing" event, the plugin:
+When Navidrome reports a playback state change, the plugin:
 
-1. Fetches the track's cover art server-side via the Subsonic API
-2. Resizes and converts it to 64×64 lossless WebP
-3. POSTs the image and metadata to the Tuneshine device as multipart/form-data
-4. Schedules a timer to clear the display when the track finishes
+- **Playing:** Fetches the track's cover art server-side via the Subsonic API, resizes and converts it to 64×64 lossless WebP, then POSTs the image and metadata to the Tuneshine device as multipart/form-data.
+- **Paused / Stopped / Expired:** Sends `DELETE /image` to the Tuneshine to revert it to the idle screen and clears the cached track ID.
 
-> **Note:** The Navidrome PDK does not expose a "playback stopped" event, so the plugin uses a duration-based timer to clear the display. If playback is paused, the display may clear before the track is resumed. This is the same approach used by the official Discord Rich Presence plugin.
+## Requirements
+
+- Navidrome **v0.62.0 or later** — the `PlaybackReport` scrobbler event used by this plugin was introduced in that release.
 
 ## Installation
 
@@ -33,10 +33,23 @@ When Navidrome reports a "now playing" event, the plugin:
 
 ## Building from Source
 
-Requires Go 1.25+ with WASM support.
+Requires Go 1.26+ with WASM support (same as Navidrome itself). [TinyGo](https://tinygo.org/) is also supported and produces a smaller binary.
+
+The `Makefile` handles both — it prefers TinyGo if it is on your `PATH`, otherwise falls back to standard Go:
 
 ```sh
+make package
+```
+
+Or manually:
+
+```sh
+# Standard Go
 GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o plugin.wasm .
+
+# TinyGo
+tinygo build -target wasip1 -buildmode=c-shared -o plugin.wasm -scheduler=none .
+
 zip tuneshine.ndp plugin.wasm manifest.json
 ```
 
