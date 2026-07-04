@@ -20,4 +20,4 @@ package: build
 	zip $(PLUGIN_NAME).ndp plugin.wasm manifest.json
 
 clean:
-	rm -f plugin.wasm $(PLUGIN_NAME).ndp
+	rm -f plugin.wasm $(PLUGIN_NAME).ndp $(PLUGIN_NAME).exe

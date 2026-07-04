@@ -113,12 +113,12 @@ func (t *tuneshine) NowPlaying(_ scrobbler.NowPlayingRequest) error {
 // Shows the track image when playing, clears it on paused/stopped/expired.
 func (t *tuneshine) PlaybackReport(input scrobbler.PlaybackReportRequest) error {
 	switch input.State {
-	case "playing":
+	case "playing", "starting":
 		return t.displayTrack(input)
 	case "paused", "stopped", "expired":
 		return t.clearDisplay()
 	default:
-		// Ignore "starting" and any unknown states.
+		// Ignore unknown states.
 		return nil
 	}
 }

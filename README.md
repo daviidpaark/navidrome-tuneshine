@@ -77,6 +77,10 @@ zip tuneshine.ndp plugin.wasm manifest.json
 - [Tuneshine Help Page](https://tuneshine.com/help) — device API documentation
 - [Navidrome OpenAPI Specification](https://www.navidrome.org/docs/developers/subsonic-api/) — Subsonic API endpoints for cover art retrieval
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
+
 ## Disclosure
 
 This project was created entirely with **GitHub Copilot** using **Claude Sonnet 4.6**. All code, configuration, and documentation were generated through an iterative conversation with the AI assistant, including debugging network compatibility issues, discovering the Tuneshine's chunked transfer encoding limitation, and pivoting to server-side image processing.
