@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.4] - 2026-07-08
+
+### Fixed
+
+- Handle `json.Marshal` error for track metadata instead of silently discarding it.
+
 ## [0.2.3] - 2026-07-04
 
 ### Highlights

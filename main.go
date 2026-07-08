@@ -203,7 +203,10 @@ func uploadTrackImage(input scrobbler.PlaybackReportRequest, deviceHost, service
 		ServiceName: serviceName,
 		ItemID:      input.Track.ID,
 	}
-	metaJSON, _ := json.Marshal(meta)
+	metaJSON, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
 
 	// Build multipart/form-data body (no mime/multipart for WASM compat)
 	boundary := "----TuneshineUpload"
