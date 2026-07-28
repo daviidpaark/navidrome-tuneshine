@@ -5,17 +5,17 @@ A [Navidrome](https://www.navidrome.org/) plugin that sends album art and track 
 ## Features
 
 - Displays 64×64 album art on the Tuneshine device when a track starts playing
-- Sends track title, artist, and album name as metadata
-- Clears the display immediately when playback is paused or stopped
-- Deduplicates requests for the same track
+- Sends artist and album name as metadata
+- Clears the display when paused, stopped, or expired — with debounced handling to prevent screen flickering during seeks and track transitions
+- Deduplicates requests for the same track or identical cover art
 - Works for all Navidrome users, with an optional allowlist to restrict which users update the display
 
 ## How It Works
 
 When Navidrome reports a playback state change, the plugin:
 
-- **Playing:** Fetches the track's cover art server-side via the Subsonic API, resizes and converts it to 64×64 lossless WebP, then POSTs the image and metadata to the Tuneshine device as multipart/form-data.
-- **Paused / Stopped / Expired:** Sends `DELETE /image` to the Tuneshine to revert it to the idle screen and clears the cached track ID.
+- **Playing / Starting:** Cancels any pending pause-clear timer, then fetches the track's cover art server-side via the Subsonic API, resizes and converts it to 64×64 lossless WebP, then POSTs the image and metadata to the Tuneshine device as multipart/form-data.
+- **Paused / Stopped / Expired:** Schedules a delayed clear (3 seconds). If playback resumes before the timer fires (e.g. during a seek or track transition), the clear is cancelled — preventing screen flickering. If the timer fires, it sends `DELETE /image` to revert to the idle screen.
 
 ## Requirements
 

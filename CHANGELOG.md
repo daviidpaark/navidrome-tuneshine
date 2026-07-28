@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-07-28
+
+### Highlights
+
+- Added debounced display clearing to eliminate screen flicker during seeks and rapid track transitions.
+- Added artwork hash deduplication to skip redundant WebP re-encoding and HTTP uploads for identical cover art.
+
+### Added
+
+- Debounced display clearing via Navidrome Scheduler API (`scheduler` permission).
+- Artwork hash deduplication (FNV-64a) for consecutive tracks with identical cover art.
+
+### Changed
+
+- Omit track title from uploaded metadata so display retains accurate album/artist info without stale track names.
+
 ## [0.2.4] - 2026-07-08
 
 ### Fixed
