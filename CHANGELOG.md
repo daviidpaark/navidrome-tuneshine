@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.1] - 2026-08-26
+
+### Fixed
+
+- Enable debounced display clearing in Hub mode (same 3-second scheduler timer as Direct mode) to prevent screen flicker and premature clearing during track transitions, seeks, and player reconnects.
+
 ## [0.4.0] - 2026-08-25
 
 ### Highlights

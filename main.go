@@ -220,11 +220,8 @@ func (t *tuneshine) PlaybackReport(input scrobbler.PlaybackReportRequest) error 
 		cancelPendingClear()
 		return t.displayTrack(input, cfg)
 	case "paused", "stopped", "expired":
-		if cfg.Mode == "hub" {
-			// In Hub mode, send clear immediately so Hub can decide whether to fallback to Spotify
-			return clearDisplay(cfg.DeviceHost)
-		}
-		// In Direct mode, debounce clear to avoid flicker during seeks
+		// Debounce clear in both Direct and Hub modes to avoid flicker during seeks,
+		// track transitions, and temporary player reconnects.
 		scheduleDelayedClear()
 		return nil
 	default:

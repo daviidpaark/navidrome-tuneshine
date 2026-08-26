@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Tuneshine",
   "author": "daviidpaark",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Sends album art and track metadata to a Tuneshine device or Tuneshine Hub",
   "permissions": {
     "users": {
@@ -18,7 +18,7 @@
       "reason": "To deduplicate requests and avoid sending duplicate artwork"
     },
     "scheduler": {
-      "reason": "To debounce pause events and prevent screen flickering during seeks in Direct mode"
+      "reason": "To debounce pause events and prevent screen flickering during seeks, track transitions, and player reconnects"
     },
     "subsonicapi": {
       "reason": "To fetch track artwork for sending to the Tuneshine device or hub"
