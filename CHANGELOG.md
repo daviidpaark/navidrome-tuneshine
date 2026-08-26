@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.0] - 2026-08-25
+
+### Highlights
+
+- **Dual Operation Modes:** Added support for **Direct to Device (Standalone)** and **Tuneshine Hub (Offload Processing)**.
+- Offloaded image downscaling and WebP compression when connected to a `tuneshine-hub` Docker container.
+- Automated CI/CD release workflow for building and attaching `.ndp` distribution packages.
+
+### Added
+
+- `mode` configuration setting in `manifest.json` (`direct` vs `hub`).
+- Direct Hub forwarding support, streaming raw cover art to `tuneshine-hub` without WASM CPU overhead.
+- Automated GitHub Actions release workflow (`.github/workflows/release.yml`).
+- Unit test suite for WebP conversion, bilinear scaling, FNV-64a hash deduplication, and user authorization (`main_test.go`).
+- MIT License.
+
+### Changed
+
+- Renamed module and documentation references to `tuneshine-navidrome` for ecosystem consistency.
+- Streamlined production logging with clean `[Tuneshine]` prefixes.
+
 ## [0.3.0] - 2026-07-28
 
 ### Highlights

@@ -1,40 +1,66 @@
 # Tuneshine Plugin for Navidrome
 
-A [Navidrome](https://www.navidrome.org/) plugin that sends album art and track metadata to a [Tuneshine](https://www.tuneshine.rocks/) device on your local network in real time as you listen to music.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Navidrome](https://img.shields.io/badge/Navidrome-Plugin-blue.svg)](https://www.navidrome.org/)
+[![Go 1.25](https://img.shields.io/badge/Go-1.25-blue.svg)](https://golang.org/)
+
+A [Navidrome](https://www.navidrome.org/) plugin that sends album art and track metadata to a [Tuneshine](https://www.tuneshine.rocks/) LED display (or a [Tuneshine Hub](https://github.com/daviidpaark/tuneshine-hub) proxy) on your local network in real time as you listen to music.
+
+---
+
+## The Tuneshine Ecosystem
+
+* **[tuneshine-navidrome](https://github.com/daviidpaark/tuneshine-navidrome)** *(This repository)*: Official Navidrome plugin. Streams live playback and cover art from your Navidrome music server to Tuneshine Hub (or directly to a physical Tuneshine device).
+* **[tuneshine-hub](https://github.com/daviidpaark/tuneshine-hub)**: Central Docker hub service. Manages 24/7 background Spotify tracking, converts raw artwork to 64×64 WebP, arbitrates multi-source priority, and drives your physical Tuneshine device.
+
+---
 
 ## Features
 
+- **Dual Operation Modes:**
+  - **Direct to Device (Standalone):** Full standalone mode where Navidrome handles 64×64 lossless WebP conversion and debouncing directly for physical Tuneshine hardware.
+  - **Tuneshine Hub (Offload Processing):** Ultra-lightweight forwarder mode where Navidrome passes raw cover art and metadata to a `tuneshine-hub` Docker container, completely offloading WebP compression and debounce timers to the server.
 - Displays 64×64 album art on the Tuneshine device when a track starts playing
 - Sends artist and album name as metadata
 - Clears the display when paused, stopped, or expired — with debounced handling to prevent screen flickering during seeks and track transitions
 - Deduplicates requests for the same track or identical cover art
 - Works for all Navidrome users, with an optional allowlist to restrict which users update the display
 
-## How It Works
+---
 
-When Navidrome reports a playback state change, the plugin:
+## Operation Modes
 
-- **Playing / Starting:** Cancels any pending pause-clear timer, then fetches the track's cover art server-side via the Subsonic API, resizes and converts it to 64×64 lossless WebP, then POSTs the image and metadata to the Tuneshine device as multipart/form-data.
-- **Paused / Stopped / Expired:** Schedules a delayed clear (3 seconds). If playback resumes before the timer fires (e.g. during a seek or track transition), the clear is cancelled — preventing screen flickering. If the timer fires, it sends `DELETE /image` to revert to the idle screen.
+| Mode | Target | Description |
+| :--- | :--- | :--- |
+| **`Direct to Device`** *(Default)* | Physical Tuneshine (e.g. `192.168.1.100` or `tuneshine.local`) | Converts cover art to 64×64 lossless WebP in WASM and speaks directly to the Tuneshine hardware. Uses Navidrome scheduler to debounce screen clearing during seeks. |
+| **`Tuneshine Hub`** | Tuneshine Hub (e.g. `tuneshine-hub:8585` or `<hub-ip>:8585`) | Forwards raw cover art and playback events directly to the Hub. The Hub handles Pillow image downscaling, WebP compression, debounce timers, and Spotify fallback. |
+
+---
 
 ## Requirements
 
 - Navidrome **v0.62.0 or later** — the `PlaybackReport` scrobbler event used by this plugin was introduced in that release.
+- Tuneshine device with Firmware 2.3.0+ (or Firmware 2.7.0+ for standalone "API Mode") on the same LAN, or a `tuneshine-hub` proxy.
+
+---
 
 ## Installation
 
-1. Download `tuneshine.ndp` from the releases
-2. Place it in your Navidrome plugins directory
+1. Download `tuneshine.ndp` from the [Releases](https://github.com/daviidpaark/tuneshine-navidrome/releases)
+2. Place it in your Navidrome plugins directory (e.g. `/data/plugins/`)
 3. Go to **Settings → Plugins** and click **Rescan** to detect the plugin
 4. Go to **Settings → Plugins → Tuneshine** and configure:
-   - **Tuneshine Device Host** — IP address or hostname of your Tuneshine (e.g. `192.168.1.100` or `tuneshine.local`)
+   - **Operation Mode** — Choose `Direct to Device (Standalone)` or `Tuneshine Hub (Offload Processing)`
+   - **Target Host** — IP address or hostname of your physical Tuneshine (e.g. `192.168.1.100` or `tuneshine.local`) or Tuneshine Hub (e.g. `tuneshine-hub:8585` or `<hub-ip>:8585`)
    - **Service Name** — Label shown on the Tuneshine display (default: `Navidrome`)
    - **Restrict to User(s)** — Optional. Only show playback from these usernames (e.g. `user1` or `user1,user2`). Leave blank for all users.
 5. Enable the plugin
 
+---
+
 ## Building from Source
 
-Requires Go 1.26+ with WASM support (same as Navidrome itself). [TinyGo](https://tinygo.org/) is also supported and produces a smaller binary.
+Requires Go 1.25+ with WASM support. [TinyGo](https://tinygo.org/) is also supported and produces a smaller binary.
 
 The `Makefile` handles both — it prefers TinyGo if it is on your `PATH`, otherwise falls back to standard Go:
 
@@ -54,13 +80,18 @@ tinygo build -target wasip1 -buildmode=c-shared -o plugin.wasm -scheduler=none .
 zip tuneshine.ndp plugin.wasm manifest.json
 ```
 
+---
+
 ## Configuration
 
 | Setting | Required | Default | Description |
 |---------|----------|---------|-------------|
-| `host` | Yes | — | Hostname or IP of the Tuneshine device |
+| `mode` | No | `direct` | Operation mode (`direct` for physical Tuneshine, `hub` for Tuneshine Hub) |
+| `host` | Yes | — | Hostname or IP of the physical Tuneshine device or Tuneshine Hub |
 | `servicename` | No | `Navidrome` | Music source name shown on the display |
-| `user` | No | _(all users)_ | Comma-separated list of usernames allowed to update the display (e.g. `user1` or `user1,user2`) |
+| `user` | No | _(all users)_ | Comma-separated list of usernames allowed to update the display |
+
+---
 
 ## Dependencies
 
@@ -70,17 +101,15 @@ zip tuneshine.ndp plugin.wasm manifest.json
 | [HugoSmits86/nativewebp](https://github.com/HugoSmits86/nativewebp) | Pure Go lossless WebP encoder (VP8L) |
 | [golang.org/x/image](https://pkg.go.dev/golang.org/x/image) | Bilinear image scaling |
 
-## References
+---
 
-- [Navidrome Plugin Development Kit Documentation](https://www.navidrome.org/docs/developers/plugins/)
-- [Navidrome Discord Rich Presence Plugin](https://github.com/navidrome/navidrome/tree/master/plugins/discord) — used as the reference implementation for scrobbler + scheduler patterns
-- [Tuneshine Help Page](https://tuneshine.com/help) — device API documentation
-- [Navidrome OpenAPI Specification](https://www.navidrome.org/docs/developers/subsonic-api/) — Subsonic API endpoints for cover art retrieval
+## AI Disclosure & Personal Project Note
 
-## Changelog
+> [!NOTE]
+> This project was developed as a personal home lab tool with the assistance of **GitHub Copilot (Claude Sonnet / Opus)** and **Google Antigravity (Gemini Flash / Pro)** AI pair programming. It is shared publicly for the benefit of the community and other Tuneshine owners. Contributions, feedback, and issue reports are always welcome!
 
-See [CHANGELOG.md](CHANGELOG.md) for release history.
+---
 
-## Disclosure
+## License
 
-This project was created entirely with **GitHub Copilot** using **Claude Sonnet 4.6**. All code, configuration, and documentation were generated through an iterative conversation with the AI assistant, including debugging network compatibility issues, discovering the Tuneshine's chunked transfer encoding limitation, and pivoting to server-side image processing.
+MIT License. See [LICENSE](LICENSE) for details.

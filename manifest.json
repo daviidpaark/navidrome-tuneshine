@@ -2,36 +2,52 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Tuneshine",
   "author": "daviidpaark",
-  "version": "0.3.0",
-  "description": "Sends album art and track metadata to a Tuneshine device on your LAN",
+  "version": "0.4.0",
+  "description": "Sends album art and track metadata to a Tuneshine device or Tuneshine Hub",
   "permissions": {
     "users": {
       "reason": "To receive scrobble and now-playing events for all users"
     },
     "http": {
-      "reason": "To send album art and metadata to the Tuneshine device",
+      "reason": "To send album art and metadata to the Tuneshine device or hub",
       "requiredHosts": [
         "*"
       ]
     },
     "cache": {
-      "reason": "To deduplicate requests and avoid sending the same track twice"
+      "reason": "To deduplicate requests and avoid sending duplicate artwork"
     },
     "scheduler": {
-      "reason": "To debounce pause events and prevent screen flickering during seeks"
+      "reason": "To debounce pause events and prevent screen flickering during seeks in Direct mode"
     },
     "subsonicapi": {
-      "reason": "To fetch track artwork for sending to the Tuneshine device"
+      "reason": "To fetch track artwork for sending to the Tuneshine device or hub"
     }
   },
   "config": {
     "schema": {
       "type": "object",
       "properties": {
+        "mode": {
+          "type": "string",
+          "title": "Operation Mode",
+          "description": "Direct to Device performs all 64x64 WebP conversion on Navidrome. Tuneshine Hub offloads image processing and debouncing to a dedicated Hub container.",
+          "default": "direct",
+          "oneOf": [
+            {
+              "const": "direct",
+              "title": "Direct to Device (Standalone)"
+            },
+            {
+              "const": "hub",
+              "title": "Tuneshine Hub (Offload Processing)"
+            }
+          ]
+        },
         "host": {
           "type": "string",
-          "title": "Tuneshine Device Host",
-          "description": "Hostname or IP address of your Tuneshine device (e.g. tuneshine-1D78.local or 192.168.1.100)",
+          "title": "Target Host",
+          "description": "In Direct mode: IP or hostname of your physical Tuneshine (e.g. 192.168.1.100 or tuneshine.local). In Hub mode: IP or hostname of Tuneshine Hub (e.g. tuneshine-hub:8585 or 192.168.1.100:8585).",
           "minLength": 1
         },
         "servicename": {
@@ -47,12 +63,17 @@
         }
       },
       "required": [
+        "mode",
         "host"
       ]
     },
     "uiSchema": {
       "type": "VerticalLayout",
       "elements": [
+        {
+          "type": "Control",
+          "scope": "#/properties/mode"
+        },
         {
           "type": "Control",
           "scope": "#/properties/host"
