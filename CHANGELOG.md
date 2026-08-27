@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.2] - 2026-08-26
+
+### Fixed
+
+- **Subsonic Player Support:** Implemented `NowPlaying` scrobbler handler so external Subsonic / OpenSubsonic desktop and mobile clients (e.g., Feishin, Symfonium, DSub) reliably trigger artwork and metadata display updates on every track change.
+- **Session Expiry & Connection Teardown Protection:** `PlaybackReport` stop/expired events now verify the report explicitly matches the currently active track ID. Events with empty track IDs (such as mobile client streaming buffer teardowns or WebSocket disconnects) or mismatched tracks are ignored to prevent premature display blanking mid-playback.
+- **Continuous Album Artwork Forwarding:** Removed plugin-side image hash suppression that prevented subsequent tracks from the same album from notifying Tuneshine Hub of active playback state.
+- **Debounce Delay:** Extended `pauseClearDelay` to 5 seconds to ensure smooth buffering and seek transitions.
+
 ## [0.4.1] - 2026-08-26
 
 ### Fixed

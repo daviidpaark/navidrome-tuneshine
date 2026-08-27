@@ -30,15 +30,14 @@ const (
 	serviceNameKey = "servicename"
 	userKey        = "user"
 
-	cacheKeyLastTrack     = "last-track-id"
-	cacheKeyLastImageHash = "last-image-hash"
-	cacheTTLSeconds       = 3600 // 1 hour
+	cacheKeyLastTrack = "last-track-id"
+	cacheTTLSeconds   = 3600 // 1 hour
 
 	tuneshineSize = 64 // Tuneshine display is 64x64
 
 	// Scheduler constants for debounced pause-clear (Direct mode)
 	pauseClearScheduleID = "tuneshine-pause-clear"
-	pauseClearDelay      = 3 // seconds to wait before clearing on pause
+	pauseClearDelay      = 5 // seconds to wait before clearing on pause
 )
 
 type pluginConfig struct {
@@ -180,7 +179,6 @@ func clearDisplay(deviceHost string) error {
 
 	pdk.Log(pdk.LogInfo, "[Tuneshine] Cleared display")
 	_ = host.CacheRemove(cacheKeyLastTrack)
-	_ = host.CacheRemove(cacheKeyLastImageHash)
 	return nil
 }
 
@@ -202,12 +200,19 @@ func (t *tuneshine) IsAuthorized(input scrobbler.IsAuthorizedRequest) (bool, err
 	return false, nil
 }
 
-// NowPlaying is a no-op (playback state is handled by PlaybackReport).
-func (t *tuneshine) NowPlaying(_ scrobbler.NowPlayingRequest) error {
-	return nil
+// NowPlaying handles now-playing events from Subsonic clients (e.g. Feishin, Symfonium, DSub).
+func (t *tuneshine) NowPlaying(input scrobbler.NowPlayingRequest) error {
+	cfg, err := getConfig()
+	if err != nil {
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("[Tuneshine] Config error: %v", err))
+		return nil
+	}
+
+	cancelPendingClear()
+	return t.displayTrack(input.Username, input.Track, cfg)
 }
 
-// PlaybackReport handles playback state changes from Navidrome.
+// PlaybackReport handles playback state changes from Navidrome Web UI and OpenSubsonic clients.
 func (t *tuneshine) PlaybackReport(input scrobbler.PlaybackReportRequest) error {
 	cfg, err := getConfig()
 	if err != nil {
@@ -218,8 +223,14 @@ func (t *tuneshine) PlaybackReport(input scrobbler.PlaybackReportRequest) error 
 	switch input.State {
 	case "playing", "starting":
 		cancelPendingClear()
-		return t.displayTrack(input, cfg)
+		return t.displayTrack(input.Username, input.Track, cfg)
 	case "paused", "stopped", "expired":
+		// Only clear if the paused/stopped/expired report explicitly identifies the currently displayed track.
+		// If the event has no track ID (e.g. generic session disconnect) or refers to a different track, ignore it.
+		lastID, found, _ := host.CacheGetString(cacheKeyLastTrack)
+		if !found || input.Track.ID == "" || lastID != input.Track.ID {
+			return nil
+		}
 		// Debounce clear in both Direct and Hub modes to avoid flicker during seeks,
 		// track transitions, and temporary player reconnects.
 		scheduleDelayedClear()
@@ -264,23 +275,27 @@ func (t *tuneshine) OnCallback(req scheduler.SchedulerCallbackRequest) error {
 // ============================================================================
 
 // displayTrack uploads track artwork and metadata to the destination host.
-func (t *tuneshine) displayTrack(input scrobbler.PlaybackReportRequest, cfg pluginConfig) error {
-	// Check if the track changed — skip upload if already displaying this track.
-	lastID, found, _ := host.CacheGetString(cacheKeyLastTrack)
-	if found && lastID == input.Track.ID {
+func (t *tuneshine) displayTrack(username string, track scrobbler.TrackInfo, cfg pluginConfig) error {
+	if track.ID == "" {
 		return nil
 	}
 
-	if err := uploadTrackImage(input, cfg); err != nil {
+	// Check if the track changed — skip upload if already displaying this track.
+	lastID, found, _ := host.CacheGetString(cacheKeyLastTrack)
+	if found && lastID == track.ID {
+		return nil
+	}
+
+	if err := uploadTrackImage(username, track, cfg); err != nil {
 		pdk.Log(pdk.LogWarn, fmt.Sprintf("[Tuneshine] %v", err))
 		return nil
 	}
-	_ = host.CacheSetString(cacheKeyLastTrack, input.Track.ID, cacheTTLSeconds)
+	_ = host.CacheSetString(cacheKeyLastTrack, track.ID, cacheTTLSeconds)
 	return nil
 }
 
 // uploadTrackImage fetches artwork via SubsonicAPI and POSTs to Tuneshine (or Hub).
-func uploadTrackImage(input scrobbler.PlaybackReportRequest, cfg pluginConfig) error {
+func uploadTrackImage(username string, track scrobbler.TrackInfo, cfg pluginConfig) error {
 	// Size hint: request 64px for Direct mode, 300px for Hub mode
 	sizeHint := tuneshineSize
 	if cfg.Mode == "hub" {
@@ -288,24 +303,17 @@ func uploadTrackImage(input scrobbler.PlaybackReportRequest, cfg pluginConfig) e
 	}
 
 	_, imageData, err := host.SubsonicAPICallRaw(
-		fmt.Sprintf("/getCoverArt?u=%s&id=%s&size=%d", input.Username, input.Track.ID, sizeHint),
+		fmt.Sprintf("/getCoverArt?u=%s&id=%s&size=%d", username, track.ID, sizeHint),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to fetch artwork: %w", err)
 	}
 
-	// Check if the artwork is identical to what's already on the display.
-	newHash := imageHash(imageData)
-	lastHash, hashFound, _ := host.CacheGetString(cacheKeyLastImageHash)
-	if hashFound && lastHash == newHash {
-		return nil
-	}
-
 	meta := trackMetadata{
-		ArtistName:  input.Track.Artist,
-		AlbumName:   input.Track.Album,
+		ArtistName:  track.Artist,
+		AlbumName:   track.Album,
 		ServiceName: cfg.ServiceName,
-		ItemID:      input.Track.ID,
+		ItemID:      track.ID,
 	}
 
 	var uploadBytes []byte
@@ -333,8 +341,7 @@ func uploadTrackImage(input scrobbler.PlaybackReportRequest, cfg pluginConfig) e
 	}
 
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("[Tuneshine] Sent track '%s' by '%s' to %s (%s mode)",
-		input.Track.Title, input.Track.Artist, cfg.DeviceHost, cfg.Mode))
-	_ = host.CacheSetString(cacheKeyLastImageHash, newHash, cacheTTLSeconds)
+		track.Title, track.Artist, cfg.DeviceHost, cfg.Mode))
 	return nil
 }
 
