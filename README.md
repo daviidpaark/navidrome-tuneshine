@@ -11,6 +11,7 @@ A [Navidrome](https://www.navidrome.org/) plugin that sends album art and track 
 ## The Tuneshine Ecosystem
 
 * **[tuneshine-navidrome](https://github.com/daviidpaark/tuneshine-navidrome)** *(This repository)*: Official Navidrome plugin. Streams live playback and cover art from your Navidrome music server to Tuneshine Hub (or directly to a physical Tuneshine device).
+* **[tuneshine-windows](https://github.com/daviidpaark/tuneshine-windows)**: Standalone Windows System Tray desktop companion. Hooks into Windows Media Controls (SMTC) to capture and stream real-time playback from Spotify, Apple Music, YouTube, Tidal, and local players to Tuneshine Hub (or directly to a physical Tuneshine device).
 * **[tuneshine-hub](https://github.com/daviidpaark/tuneshine-hub)**: Central Docker hub service. Manages 24/7 background Spotify tracking, converts raw artwork to 64×64 WebP, arbitrates multi-source priority, and drives your physical Tuneshine device.
 
 ---
